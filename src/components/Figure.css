@@ -1,0 +1,38 @@
+.figure {
+  margin: 2.2em 0;
+}
+
+.figure img {
+  width: 100%;
+  display: block;
+  border-radius: 3px;
+}
+
+.figure__placeholder {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: repeating-linear-gradient(
+    45deg, var(--paper-alt), var(--paper-alt) 10px, #eae7de 10px, #eae7de 20px
+  );
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+}
+
+.figure figcaption {
+  font-family: var(--f-sans);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-top: 0.6em;
+  line-height: 1.5;
+}
+
+@media (min-width: 1180px) {
+  .figure--wide {
+    width: calc(var(--w-body) + 260px);
+    margin-left: calc((var(--w-body) - (var(--w-body) + 260px)) / 2);
+  }
+}
