@@ -1,0 +1,56 @@
+export const refs = [
+  {
+    id: 'arjovsky2017',
+    text: 'Arjovsky, M., Chintala, S., & Bottou, L. (2017). Wasserstein GAN. arXiv:1701.07875.',
+  },
+  {
+    id: 'villani2009',
+    text: 'Villani, C. (2009). Optimal Transport: Old and New. Springer.',
+  },
+  {
+    id: 'goodfellow2014',
+    text: 'Goodfellow, I. et al. (2014). Generative Adversarial Networks. NeurIPS.',
+  },
+];
+
+The original GAN formulation<Sidenote number={1}>The generator $G$ and discriminator $D$ play a minimax game: $D$ tries to separate real from fake, $G$ tries to fool it. See Goodfellow et al., 2014.</Sidenote> trains a discriminator to distinguish real data from generated samples, and a generator to fool it. It works — but it is notoriously unstable to train, and the instability has a precise cause: the divergence it minimizes doesn't behave well when the two distributions barely overlap.
+
+This article builds up the Wasserstein GAN<Sidenote number={2}>Arjovsky, Chintala & Bottou, 2017 — the paper that reframed the GAN objective around optimal transport.</Sidenote> from the ground up: what a metric on probability distributions actually needs to satisfy, why Jensen–Shannon divergence fails that test in the regime GANs operate in, and how the Kantorovich–Rubinstein duality turns an intractable transport problem into something you can literally implement as a discriminator with a gradient penalty.
+
+## The problem with Jensen–Shannon
+
+The original GAN objective corresponds, at the optimal discriminator, to minimizing the Jensen–Shannon divergence between the real distribution $\mathbb{P}_r$ and the generator's distribution $\mathbb{P}_g$:
+
+$$\mathrm{JS}(\mathbb{P}_r, \mathbb{P}_g) = \tfrac{1}{2} D_{KL}(\mathbb{P}_r \| M) + \tfrac{1}{2} D_{KL}(\mathbb{P}_g \| M)$$
+
+where $M = \tfrac{1}{2}(\mathbb{P}_r + \mathbb{P}_g)$. The trouble is that when $\mathbb{P}_r$ and $\mathbb{P}_g$ have disjoint or nearly disjoint support — which is the typical case early in training, when the generator is still bad<Sidenote number={3}>If $\mathbb{P}_r$ and $\mathbb{P}_g$ are supported on low-dimensional manifolds embedded in a high-dimensional space, generic manifolds intersect on a measure-zero set. This is essentially always true early in training.</Sidenote> — the JS divergence saturates at $\log 2$ and its gradient with respect to the generator's parameters vanishes almost everywhere. The discriminator becomes perfect and stops providing useful signal.
+
+<Figure caption="Two distributions with disjoint support: JS divergence is flat (and uninformative) almost everywhere except at the point of overlap, while the Wasserstein distance decreases smoothly as they move closer." />
+
+## A metric that sees distance, not just overlap
+
+The Earth Mover's distance, or Wasserstein-1 distance, asks a different question: if you had to move probability mass from $\mathbb{P}_r$ to reshape it into $\mathbb{P}_g$, how much work would that take? Formally, over the set $\Pi(\mathbb{P}_r, \mathbb{P}_g)$ of all joint distributions (couplings) with those two marginals:
+
+$$W(\mathbb{P}_r, \mathbb{P}_g) = \inf_{\gamma \in \Pi(\mathbb{P}_r, \mathbb{P}_g)} \ \mathbb{E}_{(x,y)\sim\gamma}\big[\, \|x - y\| \,\big]$$
+
+Unlike JS or KL divergence, this stays finite and continuous even when the two distributions don't overlap at all — it degrades gracefully into an ordinary notion of distance between supports, not a binary overlap/no-overlap signal.<Sidenote number={4}>This is exactly the property Villani (2009) develops at length: the Wasserstein distances metrize weak convergence and behave continuously under a much broader class of distributional changes than $f$-divergences do.</Sidenote>
+
+## The problem: that infimum is intractable
+
+Computing $W$ directly means optimizing over the space of all couplings — not something you can backpropagate through as written. This is where Kantorovich–Rubinstein duality earns its keep. For the 1-Wasserstein distance specifically, the primal transport problem has a dual formulation over 1-Lipschitz functions:
+
+$$W(\mathbb{P}_r, \mathbb{P}_g) = \sup_{\|f\|_L \le 1} \ \mathbb{E}_{x\sim\mathbb{P}_r}[f(x)] - \mathbb{E}_{x\sim\mathbb{P}_g}[f(x)]$$
+
+which is a supremum over a function class rather than an infimum over couplings — and a function class is exactly what a neural network can approximate.<Sidenote number={5}>This is the move that makes WGANs practical: replace the discriminator's job (classify real vs. fake) with a "critic"'s job (approximate the 1-Lipschitz witness function $f$ that maximizes the gap between the two expectations).</Sidenote> Parameterize $f$ as a neural network $f_w$, constrain its Lipschitz constant (the original paper clips weights; later work uses a gradient penalty), and the WGAN critic loss falls out directly:
+
+$$L(w) = \mathbb{E}_{x\sim\mathbb{P}_r}[f_w(x)] - \mathbb{E}_{z\sim p(z)}[f_w(G(z))]$$
+
+The generator's job is simply to minimize this quantity — push $f_w(G(z))$ up — while the critic maximizes it subject to the Lipschitz constraint. Because $W$ is continuous and (almost everywhere) differentiable even for disjoint supports, the generator gets a usable gradient throughout training, not just near convergence.
+
+## What this buys you in practice
+
+The loss now correlates with sample quality in a way JS-based GAN loss never reliably did, which is why WGAN's critic loss can be watched as a training diagnostic rather than ignored. The cost is enforcing the Lipschitz constraint well; weight clipping was a blunt first attempt, and a large share of the follow-up literature (gradient penalty, spectral normalization) is really about approximating $\|f\|_L \le 1$ more faithfully.
+
+The throughline worth keeping: instability in the original GAN wasn't a training-trick problem, it was a choice-of-divergence problem. Once the objective is a proper metric on distributions with the right continuity properties, a lot of the ad hoc stabilization tricks stop being necessary.
+
+<References items={refs} />
