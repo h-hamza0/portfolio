@@ -13,7 +13,7 @@ export const refs = [
   },
 ];
 
-The original GAN formulation<Sidenote number={1}>The generator $G$ and discriminator $D$ play a minimax game: $D$ tries to separate real from fake, $G$ tries to fool it. See Goodfellow et al., 2014.</Sidenote> trains a discriminator to distinguish real data from generated samples, and a generator to fool it. It works — but it is notoriously unstable to train, and the instability has a precise cause: the divergence it minimizes doesn't behave well when the two distributions barely overlap.
+The original GANNN formulation<Sidenote number={1}>The generator $G$ and discriminator $D$ play a minimax game: $D$ tries to separate real from fake, $G$ tries to fool it. See Goodfellow et al., 2014.</Sidenote> trains a discriminator to distinguish real data from generated samples, and a generator to fool it. It works — but it is notoriously unstable to train, and the instability has a precise cause: the divergence it minimizes doesn't behave well when the two distributions barely overlap.
 
 This article builds up the Wasserstein GAN<Sidenote number={2}>Arjovsky, Chintala & Bottou, 2017 — the paper that reframed the GAN objective around optimal transport.</Sidenote> from the ground up: what a metric on probability distributions actually needs to satisfy, why Jensen–Shannon divergence fails that test in the regime GANs operate in, and how the Kantorovich–Rubinstein duality turns an intractable transport problem into something you can literally implement as a discriminator with a gradient penalty.
 
